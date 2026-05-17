@@ -1,27 +1,34 @@
-//Service/OrdenObserver.java
-
 package com.smartlogix.pedidos.service;
 
-// define el contrato del Observer
+import org.springframework.stereotype.Component;
+
+/**
+ * Patrón Observer: contrato para reaccionar a cambios de estado de un pedido.
+ */
 public interface OrdenObserver {
     void alCambiarEstado(Long pedidoId, String nuevoEstado);
 }
 
-// Notificaciones del Sistema
+/**
+ * Observer 1: simula el envío de un evento a Notification-Service (vía Kafka en producción).
+ */
+@Component
 class NotificacionSistemaObserver implements OrdenObserver {
     @Override
     public void alCambiarEstado(Long pedidoId, String nuevoEstado) {
-        System.out.println("Evento [Kafka]: Enviando señal para notificar que el Pedido " + pedidoId + " está " + nuevoEstado);
+        System.out.println("[Observer - Notificación] Pedido #" + pedidoId + " → " + nuevoEstado);
     }
 }
 
-// Lógica de Inventario
+/**
+ * Observer 2: repone stock cuando el pedido es cancelado.
+ */
+@Component
 class InventarioObserver implements OrdenObserver {
     @Override
     public void alCambiarEstado(Long pedidoId, String nuevoEstado) {
-        if (nuevoEstado != null && nuevoEstado.equalsIgnoreCase("Cancelado")) {
-            System.out.println("Inventario: Reponiendo stock por cancelación de Pedido #" + pedidoId);
+        if ("CANCELADO".equalsIgnoreCase(nuevoEstado)) {
+            System.out.println("[Observer - Inventario] Reponiendo stock por cancelación del pedido #" + pedidoId);
         }
     }
 }
-
