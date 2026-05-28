@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
  * Compensación:     estado=CANCELADO → compensar() → reponer stock
  * En producción:    compensar() publicaría un evento Kafka → Inventory-Service lo consumiría.
  */
+
 @Component
 public class PedidoSaga {
 
