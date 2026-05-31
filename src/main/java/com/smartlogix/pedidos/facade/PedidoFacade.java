@@ -40,6 +40,18 @@ public class PedidoFacade {
         return pedidoService.getPedido(pedidoId);
     }
 
+    public java.util.List<Pedido> listarTodos() {
+        return pedidoService.listarTodos();
+    }
+
+    public Pedido crear(Integer estadoId, String estadoNombre) {
+        return pedidoService.crear(estadoId, estadoNombre);
+    }
+
+    public void eliminar(Long pedidoId) {
+        pedidoService.eliminar(pedidoId);
+    }
+
     // Fallback del Circuit Breaker: respuesta degradada cuando el circuito está abierto
     public void fallbackActualizar(Long pedidoId, Integer estadoId, String nombreEstado, Throwable t) {
         System.out.println("[Circuit Breaker ABIERTO] No se pudo actualizar pedido #"

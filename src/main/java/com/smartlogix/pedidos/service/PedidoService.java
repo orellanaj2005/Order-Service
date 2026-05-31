@@ -42,4 +42,20 @@ public class PedidoService {
             () -> new RuntimeException("Pedido no encontrado: " + pedidoId)
         );
     }
+
+    public List<Pedido> listarTodos() {
+        return repository.findAll();
+    }
+
+    public Pedido crear(Integer estadoId, String estadoNombre) {
+        Pedido pedido = new Pedido();
+        pedido.setEstadoId(estadoId);
+        pedido.setEstadoNombre(estadoNombre);
+        pedido.setFechaActualizacion(LocalDateTime.now());
+        return repository.save(pedido);
+    }
+
+    public void eliminar(Long pedidoId) {
+        repository.deleteById(pedidoId);
+    }
 }
