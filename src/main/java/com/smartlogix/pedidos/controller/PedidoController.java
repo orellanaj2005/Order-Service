@@ -49,4 +49,9 @@ public class PedidoController {
         facade.eliminar(id);
         return ResponseEntity.noContent().build();
     }
+
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<String> handleRuntimeException(RuntimeException ex) {
+    return ResponseEntity.status(500).body(ex.getMessage());
+    }
 }
