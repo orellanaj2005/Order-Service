@@ -12,6 +12,9 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
+# curl para el healthcheck de Docker Compose
+RUN apk add --no-cache curl
+
 RUN addgroup -S smartlogix && adduser -S smartlogix -G smartlogix
 USER smartlogix
 

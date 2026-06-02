@@ -7,8 +7,8 @@ import org.springframework.stereotype.Component;
  * Patrón Saga (Choreography): escucha eventos de dominio y coordina transacciones
  * distribuidas. Si un paso falla, ejecuta la transacción compensatoria correspondiente.
  *
- * Flujo normal:     actualizarEstado → PedidoActualizadoEvent → onPedidoActualizado()
- * Compensación:     estado=CANCELADO → compensar() → reponer stock
+ * Flujo normal:     cambiarEstado → PedidoActualizadoEvent → onPedidoActualizado()
+ * Compensación:     estado=Cancelado → compensar() → reponer stock
  * En producción:    compensar() publicaría un evento Kafka → Inventory-Service lo consumiría.
  */
 
@@ -20,7 +20,7 @@ public class PedidoSaga {
         System.out.println("[Saga] Pedido #" + evento.getPedidoId()
                 + " → nuevo estado: " + evento.getNuevoEstado());
 
-        if ("CANCELADO".equalsIgnoreCase(evento.getNuevoEstado())) {
+        if ("Cancelado".equalsIgnoreCase(evento.getNuevoEstado())) {
             compensar(evento.getPedidoId());
         }
     }

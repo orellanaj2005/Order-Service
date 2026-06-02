@@ -22,12 +22,13 @@ class NotificacionSistemaObserver implements OrdenObserver {
 
 /**
  * Observer 2: repone stock cuando el pedido es cancelado.
+ * El nombre del estado proviene del catálogo ESTADO (SL_PEDIDOS): "Cancelado".
  */
 @Component
 class InventarioObserver implements OrdenObserver {
     @Override
     public void alCambiarEstado(Long pedidoId, String nuevoEstado) {
-        if ("CANCELADO".equalsIgnoreCase(nuevoEstado)) {
+        if ("Cancelado".equalsIgnoreCase(nuevoEstado)) {
             System.out.println("[Observer - Inventario] Reponiendo stock por cancelación del pedido #" + pedidoId);
         }
     }
