@@ -1,263 +1,114 @@
-﻿# SmartLogix Order Service
+# SmartLogix · Order-Service
 
 ![Java](https://img.shields.io/badge/Java-21-orange)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.5-brightgreen)
-![Maven](https://img.shields.io/badge/Maven-3.9-blue)
-![License](https://img.shields.io/badge/License-MIT-green)
 
-Microservicio encargado de la **gestión de pedidos** de la plataforma **SmartLogix**. Permite registrar, consultar y administrar pedidos, integrándose con los demás microservicios mediante API REST y eventos para garantizar una arquitectura escalable y desacoplada.
+Microservicio de **gestión de pedidos** de SmartLogix. Permite registrar, consultar y administrar pedidos y su estado, coordinando con Inventory-Service la reserva/liberación de stock mediante una **saga** y aplicando un **circuit breaker** (Resilience4j) sobre las dependencias externas.
 
----
+## Características
 
-# 🚀 Características
+- CRUD de pedidos y cambio de estado (catálogo: 1 Pendiente, 2 Confirmado, 3 Procesando, 4 Completado, 5 Cancelado).
+- Patrones **Saga** (`PedidoSaga`), **Facade** (`PedidoFacade`) y **Observer** (`OrdenObserver`).
+- **Circuit Breaker** con Resilience4j (instancia `pedidos`); un 404 de negocio no abre el circuito.
+- Persistencia en **Oracle Autonomous Database** (schema `SL_PEDIDOS`).
+- `GlobalExceptionHandler` que traduce excepciones a HTTP (404 inexistente, 503 circuito abierto).
+- Documentación OpenAPI/Swagger.
 
-* ✅ Gestión completa de pedidos.
-* ✅ API REST para operaciones CRUD.
-* ✅ Persistencia con Spring Data JPA y Oracle Autonomous Database.
-* ✅ Integración con otros microservicios mediante API REST.
-* ✅ Documentación automática con Swagger/OpenAPI.
-* ✅ Manejo de transacciones mediante Spring.
-* ✅ Pruebas unitarias con JUnit 5 y Mockito.
-* ✅ Arquitectura basada en patrones Saga, Facade y Observer.
+> El JWT lo valida el **Api-Gateway**; este servicio confía en el tráfico que llega a través del gateway.
 
----
+## Requisitos previos
 
-# 📋 Requisitos Previos
+- **Java 21** (JDK).
+- **Oracle Autonomous Database** accesible + wallet (`TNS_ADMIN`). En tests se usa H2 en memoria.
+- Maven Wrapper incluido (`mvnw` / `mvnw.cmd`).
 
-* Java 21 o superior.
-* Maven 3.9 o superior.
-* Oracle Autonomous Database.
-* Maven Wrapper (incluido en el proyecto).
+## Configuración
 
----
+La configuración está en [src/main/resources/application.yml](src/main/resources/application.yml). Se sobreescribe por variables de entorno:
 
-# 🔧 Instalación
+| Variable | Por defecto | Descripción |
+|----------|-------------|-------------|
+| `SPRING_DATASOURCE_URL` | `jdbc:oracle:thin:@yunjwge5ttypxb6i_medium?TNS_ADMIN=...` | URL JDBC de Oracle |
+| `SPRING_DATASOURCE_USERNAME` | `sl_pedidos` | Usuario dueño del schema |
+| `SPRING_DATASOURCE_PASSWORD` | *(sin valor por defecto)* | Contraseña del schema. **No se versiona**; se inyecta desde el `.env` raíz vía Docker Compose |
 
-## 1. Clonar el repositorio
+> `ddl-auto: none` — el schema lo gestiona la base de datos (scripts SQL); Hibernate no toca el DDL.
 
-```bash
-git clone https://github.com/tu-organizacion/order-service.git
-cd order-service
-```
-
-## 2. Configurar la base de datos
-
-Editar el archivo:
-
-```text
-src/main/resources/application.properties
-```
-
-Configurando las credenciales de Oracle:
-
-```properties
-spring.datasource.url=jdbc:oracle:thin:@your_database
-spring.datasource.username=usuario
-spring.datasource.password=contraseña
-spring.datasource.driver-class-name=oracle.jdbc.OracleDriver
-```
-
----
-
-## 3. Construcción
-
-Con Maven Wrapper (Windows)
+## Instalación
 
 ```bash
-./mvnw.cmd clean install
+./mvnw clean package -DskipTests      # Linux/Mac
+.\mvnw.cmd clean package -DskipTests  # Windows (PowerShell)
 ```
 
-Con Maven Wrapper (Linux/Mac)
+## Ejecución
 
 ```bash
-./mvnw clean install
+./mvnw spring-boot:run        # Linux/Mac
+.\mvnw.cmd spring-boot:run    # Windows (PowerShell)
 ```
 
-Con Maven instalado
+El servicio queda disponible en **http://localhost:8082**.
+
+- Swagger UI: http://localhost:8082/swagger-ui.html
+- Health check: http://localhost:8082/actuator/health
+
+### Docker (recomendado: vía Docker Compose)
+
+La forma recomendada de ejecutarlo con sus credenciales es el **Docker Compose del monorepo**, que las toma del `.env` raíz (no versionado, fuera del repositorio):
 
 ```bash
-mvn clean install
+# Desde la raíz del monorepo SmartLogix (junto a Docker-compose.yml y .env)
+docker compose up ms-pedidos     # solo este servicio
+docker compose up                # toda la plataforma
 ```
 
----
+El `.env` debe definir `PED_DATASOURCE_PASSWORD` (y el resto de credenciales); el `Docker-compose.yml` aborta con un mensaje claro si falta. El wallet se monta desde `ORACLE_WALLET_PATH`.
 
-# ▶️ Ejecutar la Aplicación
+> Ninguna contraseña está escrita en el código ni en este README: deben proveerse vía `.env` / variables de entorno.
 
-Con Maven Wrapper (Windows)
+## Endpoints principales
+
+> En despliegue real se accede a través del Api-Gateway con el prefijo `/api` (p. ej. `GET /api/pedidos`).
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| GET | `/pedidos` | Listar pedidos |
+| GET | `/pedidos/{id}` | Obtener pedido por id |
+| GET | `/pedidos/{id}/estado` | Estado actual del pedido |
+| POST | `/pedidos` | Crear pedido (estado inicial: Pendiente) |
+| PATCH | `/pedidos/{id}/estado?estadoId=N` | Cambiar el estado del pedido |
+| DELETE | `/pedidos/{id}` | Eliminar pedido |
+
+## Pruebas
+
+No hay Maven global; usa el wrapper. En Windows, `mvnw` necesita `JAVA_HOME`:
+
+```powershell
+# PowerShell (Windows)
+$env:JAVA_HOME = Split-Path -Parent (Split-Path -Parent (Get-Command java).Source)
+.\mvnw.cmd test
+```
 
 ```bash
-./mvnw.cmd spring-boot:run
+# Linux/Mac
+./mvnw test
 ```
 
-Con Maven Wrapper (Linux/Mac)
+Las 31 pruebas (JUnit 5 + Mockito) cubren `PedidoService`, `PedidoController`, `PedidoFacade`, `OrdenObserver` y `PedidoSaga`. El arranque de contexto usa el perfil `test` con H2 en memoria.
 
-```bash
-./mvnw spring-boot:run
-```
-
-Con Maven instalado
-
-```bash
-mvn spring-boot:run
-```
-
-La aplicación estará disponible en:
+## Estructura
 
 ```
-http://localhost:8080
+src/main/java/com/smartlogix/pedidos/
+├── PedidosApplication.java
+├── config/        # OpenApiConfig
+├── controller/    # PedidoController
+├── dto/           # PedidoDTO, CrearPedidoRequest, etc.
+├── exception/     # GlobalExceptionHandler, NotFound, ServiceUnavailable
+├── facade/        # PedidoFacade
+├── model/         # Pedido, Estado, EstadoPedidoActual
+├── repository/    # Repositorios JPA
+├── saga/          # PedidoSaga + PedidoActualizadoEvent
+└── service/       # PedidoService, OrdenObserver
 ```
-
----
-
-# 📚 Estructura del Proyecto
-
-```text
-src/
-├── main/
-│   ├── java/com/smartlogix/orderservice/
-│   │   ├── OrderServiceApplication.java
-│   │   ├── config/
-│   │   ├── controller/
-│   │   ├── dto/
-│   │   ├── entity/
-│   │   ├── repository/
-│   │   ├── service/
-│   │   ├── mapper/
-│   │   └── exception/
-│   └── resources/
-│       └── application.properties
-└── test/
-    └── java/
-```
-
----
-
-# 🔌 API Endpoints
-
-| Método | Endpoint      | Descripción               |
-| ------ | ------------- | ------------------------- |
-| GET    | /pedidos      | Obtiene todos los pedidos |
-| GET    | /pedidos/{id} | Obtiene un pedido por ID  |
-| POST   | /pedidos      | Registra un nuevo pedido  |
-| PUT    | /pedidos/{id} | Actualiza un pedido       |
-| DELETE | /pedidos/{id} | Elimina un pedido         |
-
-La documentación completa de la API está disponible mediante Swagger.
-
----
-
-# 💾 Persistencia
-
-El servicio utiliza:
-
-* Spring Data JPA
-* Hibernate
-* Oracle Autonomous Database
-* Patrón Repository
-* Transacciones con `@Transactional`
-
-Para pruebas unitarias se utiliza:
-
-* H2 Database en memoria.
-
----
-
-# 🔄 Integración
-
-Order-Service se comunica con:
-
-* API Gateway (BFF)
-* User-Service
-* Inventory-Service
-* Notification-Service
-
-La integración se realiza mediante API REST y eventos, permitiendo mantener una arquitectura desacoplada y escalable.
-
----
-
-# 🧪 Testing
-
-Ejecutar las pruebas unitarias:
-
-Con Maven Wrapper
-
-```bash
-./mvnw.cmd test
-```
-
-Con Maven
-
-```bash
-mvn test
-```
-
-Generar el reporte de cobertura:
-
-```bash
-mvn clean verify
-```
-
-Los reportes JaCoCo se generan en:
-
-```text
-target/site/jacoco/
-```
-
----
-
-# 📦 Dependencias Principales
-
-* Spring Boot 3.4.5
-* Spring Web
-* Spring Data JPA
-* Spring Validation
-* Oracle JDBC Driver
-* Lombok
-* OpenAPI / Swagger
-* Resilience4j
-* JUnit 5
-* Mockito
-
----
-
-# 🤝 Contribuir
-
-Las contribuciones son bienvenidas.
-
-1. Fork del repositorio.
-2. Crear una nueva rama.
-3. Realizar los cambios.
-4. Enviar un Pull Request.
-
----
-
-# 📋 Licencia
-
-Este proyecto se distribuye bajo la licencia MIT.
-
----
-
-# 👨‍💻 Autor
-
-**SmartLogix Development Team**
-
-Proyecto desarrollado para la asignatura **Desarrollo Fullstack III**.
-
----
-
-# 📞 Soporte
-
-Para reportar errores o sugerencias, crear un **Issue** en el repositorio correspondiente.
-
----
-
-# 🔗 Enlaces Útiles
-
-* Spring Boot Documentation
-* Spring Data JPA Documentation
-* Oracle JDBC Documentation
-* Swagger OpenAPI Documentation
-
----
-
-**Última actualización:** Junio 2026.

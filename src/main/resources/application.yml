@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: pedidos
+
+  # Oracle Autonomous DB (misma instancia que los otros microservicios, schema SL_PEDIDOS)
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:oracle:thin:@yunjwge5ttypxb6i_medium?TNS_ADMIN=C:/Oracle/Wallet}
+    username: ${SPRING_DATASOURCE_USERNAME:sl_pedidos}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      connection-test-query: SELECT 1 FROM DUAL
+
+  # JPA / Hibernate — el schema lo gestiona la BD (scripts SQL); Hibernate no toca el DDL
+  jpa:
+    database-platform: org.hibernate.dialect.OracleDialect
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        default_schema: SL_PEDIDOS
+
+server:
+  port: 8082
+
+# Actuator — expone /actuator/health para el healthcheck de Docker Compose
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+# Circuit Breaker (Resilience4j)
+resilience4j:
+  circuitbreaker:
+    instances:
+      pedidos:
+        sliding-window-size: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        # Un 404 de negocio no debe contar como fallo ni abrir el circuito
+        ignore-exceptions:
+          - com.smartlogix.pedidos.exception.NotFoundException
